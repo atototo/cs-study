@@ -4,49 +4,39 @@ const sidebars = {
     'intro',
     {
       type: 'category',
-      label: '🖥️ 컴퓨터 시스템',
+      label: '💻 컴퓨터 시스템',
       items: [
-        '01-computer-system/01-cpu-basics',
-        '01-computer-system/02-memory-structure',
-        '01-computer-system/03-process-thread',
+        'computer-system/cpu-basics',
+        'computer-system/memory-structure',
+        'computer-system/process-thread',
       ],
     },
     {
       type: 'category',
-      label: '📊 자료구조',
-      items: [
-        '02-data-structure/intro',
-      ],
+      label: '📊 자료구조 & 알고리즘',
+      items: ['data-structure/intro'],
     },
     {
       type: 'category',
       label: '🌐 네트워크',
-      items: [
-        '03-network/intro',
-      ],
+      items: ['network/intro'],
     },
     {
       type: 'category',
       label: '🗄️ 데이터베이스',
-      items: [
-        '04-database/intro',
-      ],
+      items: ['database/intro'],
     },
     {
       type: 'category',
-      label: '🐳 인프라/DevOps',
-      items: [
-        '05-infrastructure/intro',
-      ],
+      label: '🐳 인프라 & DevOps',
+      items: ['infrastructure/intro'],
     },
     {
       type: 'category',
       label: '🔒 보안',
-      items: [
-        '06-security/intro',
-      ],
+      items: ['security/intro'],
     },
   ],
 };
 
-export default sidebars;
+module.exports = sidebars;
