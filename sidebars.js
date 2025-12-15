@@ -7,6 +7,7 @@ const sidebars = {
       label: '💻 컴퓨터 시스템',
       items: [
         'computer-system/operating-system',
+        'computer-system/lock-and-synchronization',
         'computer-system/cpu-basics',
         'computer-system/memory-structure',
         'computer-system/process-thread',

@@ -1,0 +1,321 @@
+---
+sidebar_position: 3
+title: "🔒 Lock과 동기화"
+description: "Race Condition, Lock 종류, Deadlock까지 인터랙티브하게 배우기"
+---
+
+import BrowserOnly from '@docusaurus/BrowserOnly';
+
+# 🔒 Lock과 동기화 (Synchronization)
+
+멀티스레드 환경에서 **공유 자원**을 안전하게 다루는 방법을 알아봅니다.
+
+---
+
+## 🏃 왜 동기화가 필요한가?
+
+여러 스레드가 **동시에 같은 변수**를 수정하면 예상치 못한 결과가 발생합니다.
+
+<BrowserOnly>
+  {() => {
+    const RaceConditionDemo = require('@site/src/components/RaceConditionDemo').default;
+    return <RaceConditionDemo />;
+  }}
+</BrowserOnly>
+
+### 핵심 개념: 임계 영역 (Critical Section)
+
+```
+┌─────────────────────────────────────────┐
+│  Thread-1    │  Critical Section  │  Thread-2    │
+│              │  ┌─────────────┐   │              │
+│  ──────────► │  │ count++;    │   │ ◄──────────  │
+│   진입 시도   │  │ (공유 자원)  │   │  진입 시도   │
+│              │  └─────────────┘   │              │
+│              │                    │              │
+│              │  🔐 Lock으로 보호  │              │
+└─────────────────────────────────────────┘
+```
+
+- **임계 영역**: 공유 자원에 접근하는 코드 블록
+- **상호 배제**: 한 번에 하나의 스레드만 진입 허용
+- **동기화**: 스레드 간 실행 순서를 조율
+
+---
+
+## 🔐 Lock의 종류
+
+동기화를 위한 다양한 도구들의 특징과 사용 사례를 비교해봅니다.
+
+<BrowserOnly>
+  {() => {
+    const LockTypesVisual = require('@site/src/components/LockTypesVisual').default;
+    return <LockTypesVisual />;
+  }}
+</BrowserOnly>
+
+### Mutex vs Semaphore 핵심 차이
+
+| 구분 | Mutex | Semaphore |
+|------|-------|-----------|
+| **비유** | 화장실 열쇠 (1개) | 놀이기구 티켓 (N개) |
+| **동시 접근** | 1개만 | N개까지 |
+| **소유권** | 잠근 스레드만 해제 가능 | 누구나 signal 가능 |
+| **용도** | 상호 배제 | 자원 풀 관리 |
+
+---
+
+## ☕ Java 동기화 도구
+
+### 1. synchronized (암묵적 Lock)
+
+```java
+// 방법 1: 메서드 동기화
+public synchronized void increment() {
+    count++;
+}
+
+// 방법 2: 블록 동기화 (더 세밀한 제어)
+public void increment() {
+    synchronized(this) {
+        count++;
+    }
+}
+
+// 방법 3: 클래스 레벨 (static 메서드)
+public static synchronized void staticMethod() {
+    // 클래스당 하나의 Lock
+}
+```
+
+### 2. ReentrantLock (명시적 Lock)
+
+```java
+private final ReentrantLock lock = new ReentrantLock();
+
+public void increment() {
+    lock.lock();  // 명시적 획득
+    try {
+        count++;
+    } finally {
+        lock.unlock();  // 반드시 finally에서 해제!
+    }
+}
+
+// tryLock으로 Deadlock 방지
+if (lock.tryLock(1, TimeUnit.SECONDS)) {
+    try {
+        // 작업 수행
+    } finally {
+        lock.unlock();
+    }
+} else {
+    // 타임아웃 처리
+}
+```
+
+### synchronized vs ReentrantLock 비교
+
+| 기능 | synchronized | ReentrantLock |
+|------|--------------|---------------|
+| **사용법** | 간단 (키워드) | 복잡 (try-finally 필수) |
+| **타임아웃** | ❌ | ✅ tryLock(timeout) |
+| **인터럽트** | ❌ | ✅ lockInterruptibly() |
+| **공정성** | ❌ | ✅ new ReentrantLock(true) |
+| **Condition** | wait/notify | ✅ 다중 Condition 지원 |
+| **성능** | JVM 최적화 | 비슷 (Java 6 이후) |
+
+:::tip 실무 선택 기준
+- **단순 동기화**: `synchronized` (간결하고 안전)
+- **타임아웃/인터럽트 필요**: `ReentrantLock`
+- **읽기 많은 경우**: `ReentrantReadWriteLock`
+:::
+
+---
+
+## 🗄️ DB Lock (데이터베이스)
+
+### Pessimistic Lock (비관적 잠금)
+
+```sql
+-- 조회 시점에 Lock 획득 (다른 트랜잭션 대기)
+SELECT * FROM product WHERE id = 1 FOR UPDATE;
+
+-- 수정
+UPDATE product SET stock = stock - 1 WHERE id = 1;
+
+COMMIT;  -- Lock 해제
+```
+
+```java
+// JPA
+@Lock(LockModeType.PESSIMISTIC_WRITE)
+@Query("SELECT p FROM Product p WHERE p.id = :id")
+Product findByIdWithLock(@Param("id") Long id);
+```
+
+### Optimistic Lock (낙관적 잠금)
+
+```java
+@Entity
+public class Product {
+    @Id
+    private Long id;
+    
+    @Version  // 버전 컬럼 자동 관리
+    private Long version;
+    
+    private int stock;
+}
+```
+
+```sql
+-- 수정 시 버전 체크
+UPDATE product 
+SET stock = stock - 1, version = version + 1 
+WHERE id = 1 AND version = 5;
+
+-- 영향받은 행이 0이면 → OptimisticLockException
+```
+
+### Pessimistic vs Optimistic 비교
+
+| 구분 | Pessimistic | Optimistic |
+|------|-------------|------------|
+| **전략** | 충돌할 것이다 (미리 잠금) | 충돌 안 할 것이다 (나중에 체크) |
+| **Lock 시점** | 조회 시 | 커밋 시 |
+| **동시성** | 낮음 (대기 발생) | 높음 |
+| **충돌 처리** | 대기 | 예외 → 재시도 |
+| **적합한 경우** | 충돌 빈번, 짧은 트랜잭션 | 충돌 드묾, 읽기 많음 |
+
+:::info 실무 선택 가이드
+- **재고 차감** (동시 주문 많음): Pessimistic Lock
+- **게시글 수정** (충돌 드묾): Optimistic Lock
+- **좌석 예약**: Pessimistic + 타임아웃
+:::
+
+---
+
+## 💀 Deadlock (교착 상태)
+
+두 스레드가 서로의 Lock을 기다리며 영원히 멈추는 상태입니다.
+
+<BrowserOnly>
+  {() => {
+    const DeadlockDemo = require('@site/src/components/DeadlockDemo').default;
+    return <DeadlockDemo />;
+  }}
+</BrowserOnly>
+
+### Deadlock 코드 예시
+
+```java
+// ❌ Deadlock 발생 가능!
+// Thread-1: lockA → lockB 순서
+// Thread-2: lockB → lockA 순서
+
+// Thread-1
+synchronized(lockA) {
+    Thread.sleep(100);
+    synchronized(lockB) {  // Thread-2가 lockB 보유 중 → 대기
+        // 작업
+    }
+}
+
+// Thread-2 (동시 실행)
+synchronized(lockB) {
+    Thread.sleep(100);
+    synchronized(lockA) {  // Thread-1이 lockA 보유 중 → 대기
+        // 작업
+    }
+}
+// → 서로 영원히 대기 💀
+```
+
+### Deadlock 예방 패턴
+
+```java
+// ✅ 해결: Lock 순서 고정 (항상 A → B)
+public void method1() {
+    synchronized(lockA) {
+        synchronized(lockB) {
+            // 작업
+        }
+    }
+}
+
+public void method2() {
+    synchronized(lockA) {  // B가 아닌 A 먼저!
+        synchronized(lockB) {
+            // 작업
+        }
+    }
+}
+```
+
+---
+
+## 🎯 면접 예상 질문
+
+### Q1: Race Condition이 뭔가요?
+
+> **A**: 여러 스레드가 공유 자원에 동시 접근할 때, 실행 순서에 따라 결과가 달라지는 현상입니다. 
+> `count++`는 READ → ADD → WRITE 3단계인데, 두 스레드가 동시에 READ하면 같은 값을 읽어서 하나의 증가가 사라집니다.
+> `synchronized`나 `AtomicInteger`로 해결합니다.
+
+### Q2: synchronized와 ReentrantLock 차이는?
+
+> **A**: `synchronized`는 JVM이 관리하는 암묵적 Lock으로 간단하지만 타임아웃이 없습니다.
+> `ReentrantLock`은 `tryLock(timeout)`으로 Deadlock 방지, 다중 Condition 지원 등 세밀한 제어가 가능합니다.
+> 단순한 경우 synchronized, 타임아웃 필요시 ReentrantLock을 씁니다.
+
+### Q3: Deadlock 발생 조건과 해결법은?
+
+> **A**: 4가지 조건(상호배제, 점유대기, 비선점, 순환대기)이 **모두** 충족되면 발생합니다.
+> 해결법:
+> 1. **Lock 순서 고정**: 항상 같은 순서로 획득
+> 2. **tryLock + 타임아웃**: 일정 시간 후 포기하고 재시도
+> 3. **한 번에 모든 Lock 획득**: 점유대기 조건 제거
+
+### Q4: Pessimistic vs Optimistic Lock 언제 쓰나요?
+
+> **A**: 
+> - **Pessimistic**: 충돌이 자주 발생하는 경우 (재고 차감, 좌석 예약)
+> - **Optimistic**: 충돌이 드문 경우 (게시글 수정, 설정 변경)
+> 
+> Pessimistic은 대기 비용, Optimistic은 재시도 비용이 발생합니다.
+> 트래픽 패턴에 따라 선택합니다.
+
+### Q5: Java에서 Thread-safe한 자료구조는?
+
+> **A**: 
+> - `ConcurrentHashMap`: 세그먼트 단위 Lock으로 높은 동시성
+> - `CopyOnWriteArrayList`: 읽기 많고 쓰기 적을 때
+> - `BlockingQueue`: 생산자-소비자 패턴
+> - `AtomicInteger/Long`: CAS 기반 Lock-free 연산
+
+---
+
+## 📚 핵심 정리
+
+```
+동기화가 필요한 이유
+└── Race Condition: 공유 자원 동시 접근 문제
+
+Lock 종류
+├── Mutex: 1개만 진입 (synchronized)
+├── Semaphore: N개까지 진입 (커넥션 풀)
+└── Monitor: Lock + 조건 변수 (wait/notify)
+
+Java 동기화
+├── synchronized: 간단, JVM 관리
+└── ReentrantLock: 타임아웃, 공정성, 다중 Condition
+
+DB Lock
+├── Pessimistic: 미리 잠금, 충돌 빈번 시
+└── Optimistic: @Version, 충돌 드문 경우
+
+Deadlock
+├── 4가지 조건 모두 충족 시 발생
+└── 해결: Lock 순서 고정, tryLock 타임아웃
+```
