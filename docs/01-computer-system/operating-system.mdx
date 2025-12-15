@@ -218,6 +218,184 @@ A: **유저 모드**에서 실행됩니다. 파일 저장, 네트워크 통신 �
 
 ---
 
+## ⚡ Mode Switch vs Context Switch
+
+시스템 콜이 비싼 이유를 이해하려면 두 가지 개념을 구분해야 합니다.
+
+### 🔄 Mode Switch (모드 스위치)
+
+**권한 레벨만 바뀌는 것**입니다.
+
+```
+User Mode (Ring 3) ←→ Kernel Mode (Ring 0)
+```
+
+- **언제 발생?** 시스템 콜 할 때마다 **항상** 발생
+- **뭐가 바뀜?** CPU의 권한 레벨만 변경
+- **비용:** 상대적으로 가벼움
+  - 일부 레지스터 저장
+  - 권한 체크
+  - 시스템 콜 테이블 조회
+
+:::note 비유
+회사에서 **보안 구역 출입**하는 것과 같아요.  
+출입증 찍고 들어가면 끝 - 내 자리와 작업 내용은 그대로입니다.
+:::
+
+### 🔀 Context Switch (컨텍스트 스위치)
+
+**실행 중인 프로세스/쓰레드 자체가 바뀌는 것**입니다.
+
+```
+프로세스 A 실행 중 → 프로세스 B로 교체
+```
+
+- **언제 발생?** 
+  - I/O 대기로 블로킹될 때
+  - 타임슬라이스(할당 시간) 만료
+  - 더 높은 우선순위 프로세스 등장
+- **뭐가 바뀜?** 실행 주체 전체!
+- **비용:** 무거움 💥
+
+#### Context Switch 시 저장/복원해야 하는 것들
+
+| 항목 | 설명 |
+|-----|------|
+| **PC (Program Counter)** | 어디까지 실행했는지 |
+| **레지스터 값들** | CPU 계산 중간 결과 전부 |
+| **Stack Pointer** | 스택 어디까지 썼는지 |
+| **MMU 매핑 정보** | 가상 → 물리 주소 변환 테이블 |
+| **CPU 캐시** | **무효화됨!** 💥 |
+
+:::caution CPU 캐시 무효화가 치명적인 이유
+- L1/L2/L3 캐시에 있던 데이터가 새 프로세스와 무관해짐
+- 다시 메모리에서 가져와야 함 → **Cache Miss 폭증**
+- 이게 Context Switch가 진짜 비싼 이유입니다
+:::
+
+:::note 비유
+회사에서 **자리를 완전히 바꾸는 것**과 같아요.  
+모니터에 띄워둔 문서, 메모장, 계산기 결과... 다 치우고 새로 세팅해야 합니다.
+:::
+
+---
+
+### 📍 시스템 콜 시 실제로 일어나는 일
+
+`read()` 시스템 콜 하나를 호출하면:
+
+```
+1. read() 시스템 콜 호출
+      ↓
+2. Mode Switch (User → Kernel)     ← 항상 발생
+      ↓
+3. 디스크 I/O 요청
+      ↓
+4. I/O 완료 대기... 🕐
+   └─ 여기서 Context Switch 발생!
+      (다른 프로세스한테 CPU 양보)
+      ↓
+5. I/O 완료 → 다시 내 차례
+   └─ 또 Context Switch!
+      (내 컨텍스트 복원, 캐시 다시 채움)
+      ↓
+6. Mode Switch (Kernel → User)     ← 항상 발생
+      ↓
+7. 데이터 반환
+```
+
+:::tip 핵심 정리
+- **Mode Switch**: 시스템 콜마다 **최소 2번** (들어갈 때 + 나올 때)
+- **Context Switch**: I/O 블로킹 시 **추가로** 발생할 수 있음
+- 그래서 시스템 콜 횟수를 줄이는 게 중요!
+:::
+
+---
+
+### 💡 BufferedReader가 빠른 이유
+
+이제 왜 `BufferedReader`가 빠른지 이해할 수 있습니다.
+
+#### ❌ 비효율적인 방식: 1바이트마다 시스템 콜
+
+```java
+// 100바이트 읽으면 → 100번 시스템 콜!
+while ((b = inputStream.read()) != -1) {
+    // 매번 read() 시스템 콜 발생
+}
+```
+
+**100바이트 읽을 때:**
+- 시스템 콜: **100번**
+- Mode Switch: **200번**
+- Context Switch: 다수 발생 가능 💥
+
+#### ✅ 효율적인 방식: 8KB씩 한 번에
+
+```java
+// 100바이트 읽어도 → 1번 시스템 콜!
+BufferedInputStream bis = new BufferedInputStream(inputStream);
+while ((b = bis.read()) != -1) {
+    // 대부분 User Space 버퍼에서 읽음
+}
+```
+
+**100바이트 읽을 때:**
+- 시스템 콜: **1번** (8KB 버퍼 채우기)
+- Mode Switch: **2번**
+- Context Switch: 최소화 ✨
+
+#### 동작 원리
+
+<BrowserOnly>
+  {() => {
+    const BufferedIODiagram = require('@site/src/components/BufferedIODiagram').default;
+    return <BufferedIODiagram />;
+  }}
+</BrowserOnly>
+
+**핵심:** User Space의 버퍼에서 읽는 동안은 커널 개입 없이 진행됩니다.
+
+---
+
+### 🎯 면접 포인트
+
+:::tip Q: 시스템 콜이 비싼 이유가 뭔가요?
+
+**모범 답변:**
+
+> 시스템 콜이 비싼 이유는 크게 두 가지입니다.
+>
+> 첫째, **Mode Switch** 비용입니다. 매번 User Mode에서 Kernel Mode로 전환할 때 권한 체크와 일부 레지스터 저장이 필요합니다.
+>
+> 둘째, **Context Switch** 가능성입니다. I/O 작업처럼 블로킹이 발생하면 다른 프로세스로 전환되는데, 이때 모든 레지스터를 저장/복원하고 CPU 캐시가 무효화됩니다. 캐시 무효화로 인한 Cache Miss가 가장 큰 성능 저하 요인입니다.
+>
+> 그래서 `BufferedReader`처럼 시스템 콜 횟수를 줄이는 버퍼링이 성능에 중요합니다.
+:::
+
+:::tip Q: Mode Switch와 Context Switch의 차이점은?
+
+**모범 답변:**
+
+> **Mode Switch**는 권한 레벨만 바뀌는 것입니다. User Mode와 Kernel Mode 간 전환으로, 시스템 콜할 때 항상 발생합니다. 비용은 상대적으로 가볍습니다.
+>
+> **Context Switch**는 실행 주체 자체가 바뀌는 것입니다. 프로세스나 쓰레드 전환 시 발생하며, 모든 레지스터 저장/복원과 CPU 캐시 무효화 때문에 훨씬 무겁습니다.
+>
+> 시스템 콜 한 번에 Mode Switch는 필수지만, Context Switch는 I/O 블로킹 같은 상황에서 추가로 발생할 수 있습니다.
+:::
+
+---
+
+{/* 시각화 컴포넌트 */}
+<BrowserOnly fallback={<div style={{padding: '40px', textAlign: 'center', color: '#94a3b8'}}>로딩 중...</div>}>
+  {() => {
+    const ModeSwitchVsContextSwitch = require('@site/src/components/ModeSwitchVsContextSwitch').default;
+    return <ModeSwitchVsContextSwitch />;
+  }}
+</BrowserOnly>
+
+---
+
 ## ⚡ 인터럽트 (Interrupt)
 
 **인터럽트**는 CPU에게 "지금 하던 일 멈추고 이것 좀 처리해!"라고 알리는 신호입니다.
