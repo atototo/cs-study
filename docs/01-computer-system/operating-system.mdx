@@ -316,27 +316,22 @@ User Mode (Ring 3) ←→ Kernel Mode (Ring 0)
 
 이제 왜 `BufferedReader`가 빠른지 이해할 수 있습니다.
 
-#### ❌ 비효율적인 방식: 1바이트마다 시스템 콜
-
+#### ❌ 비효율적인 방식: 1문자마다 시스템 콜
 ```java
-// 100바이트 읽으면 → 100번 시스템 콜!
-while ((b = inputStream.read()) != -1) {
-    // 매번 read() 시스템 콜 발생
+FileReader fr = new FileReader("file.txt");
+while ((c = fr.read()) != -1) {  // 매번 시스템 콜
 }
 ```
 
-**100바이트 읽을 때:**
+**100문자 읽을 때:**
 - 시스템 콜: **100번**
 - Mode Switch: **200번**
 - Context Switch: 다수 발생 가능 💥
 
 #### ✅ 효율적인 방식: 8KB씩 한 번에
-
 ```java
-// 100바이트 읽어도 → 1번 시스템 콜!
-BufferedInputStream bis = new BufferedInputStream(inputStream);
-while ((b = bis.read()) != -1) {
-    // 대부분 User Space 버퍼에서 읽음
+BufferedReader br = new BufferedReader(new FileReader("file.txt"));
+while ((line = br.readLine()) != null) {  // 버퍼에서 읽음
 }
 ```
 
