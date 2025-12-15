@@ -6,6 +6,7 @@ sidebar_position: 1
 
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
+import BrowserOnly from '@docusaurus/BrowserOnly';
 
 > **하드웨어와 소프트웨어 사이의 중간 관리자**
 
@@ -127,28 +128,12 @@ $ lsof -i :8080              # 8080 포트 사용 프로세스
 
 ## ☕ Java/Spring과 OS의 관계
 
-```bash
-# JVM 메모리 설정 = OS에게 메모리 요청
-java -Xms256m -Xmx512m -jar app.jar
-
-# -Xms256m : 시작 시 Heap 256MB 달라고 OS에 요청
-# -Xmx512m : 최대 Heap 512MB까지 쓸 수 있게 해달라고 요청
-```
-
-```
-┌─────────────────────────────────────────┐
-│              OS (운영체제)               │
-│  "JVM아, 너한테 512MB 할당해줄게"         │
-│                                         │
-│    ┌─────────────────────────────┐     │
-│    │           JVM               │     │
-│    │  ┌───────────────────┐     │     │
-│    │  │   Heap (≤512MB)   │     │     │
-│    │  │   Stack, etc.     │     │     │
-│    │  └───────────────────┘     │     │
-│    └─────────────────────────────┘     │
-└─────────────────────────────────────────┘
-```
+<BrowserOnly fallback={<div style={{padding: '40px', textAlign: 'center', color: '#94a3b8'}}>로딩 중...</div>}>
+  {() => {
+    const JVMAndOS = require('@site/src/components/JVMAndOS').default;
+    return <JVMAndOS />;
+  }}
+</BrowserOnly>
 
 ---
 
