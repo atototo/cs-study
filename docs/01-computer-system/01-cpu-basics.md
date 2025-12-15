@@ -93,4 +93,4 @@ npm run build --parallel  # 여러 코어가 나눠서 처리 → 빠름
 - [x] CPU의 기본 동작 (Fetch-Decode-Execute-Store) 이해
 - [x] 코어와 CPU의 관계 이해
 - [x] 멀티코어의 장점 이해
-- [ ] 다음 단계: [메모리 구조](/docs/01-computer-system/02-memory-structure) 학습
+- [ ] 다음 단계: [메모리 구조](./02-memory-structure.mdx) 학습
