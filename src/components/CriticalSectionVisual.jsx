@@ -98,7 +98,10 @@ export default function CriticalSectionVisual() {
         if (intervalRef.current) clearInterval(intervalRef.current);
     };
 
-    const getThreadStyle = (state, color, lightColor) => {
+    const getThreadStyle = (state, color, lightColor, position = 'left') => {
+        // position: 'left' = Thread-1 (오른쪽으로 이동), 'right' = Thread-2 (왼쪽으로 이동)
+        const direction = position === 'left' ? 1 : -1;
+
         const baseStyle = {
             width: '100px',
             height: '60px',
@@ -117,13 +120,13 @@ export default function CriticalSectionVisual() {
             case 'waiting':
                 return { ...baseStyle, backgroundColor: color + '20', color: lightColor };
             case 'entering':
-                return { ...baseStyle, backgroundColor: color + '40', color: lightColor, transform: 'translateX(20px)', boxShadow: `0 0 20px ${color}40` };
+                return { ...baseStyle, backgroundColor: color + '40', color: lightColor, transform: `translateX(${20 * direction}px)`, boxShadow: `0 0 20px ${color}40` };
             case 'inside':
-                return { ...baseStyle, backgroundColor: color, color: 'white', transform: 'translateX(40px)', boxShadow: `0 0 30px ${color}` };
+                return { ...baseStyle, backgroundColor: color, color: 'white', transform: `translateX(${40 * direction}px)`, boxShadow: `0 0 30px ${color}` };
             case 'blocked':
                 return { ...baseStyle, backgroundColor: COLORS.danger + '20', borderColor: COLORS.danger, color: COLORS.dangerLight, animation: 'pulse 1s infinite' };
             case 'exiting':
-                return { ...baseStyle, backgroundColor: color + '40', color: lightColor, transform: 'translateX(20px)' };
+                return { ...baseStyle, backgroundColor: color + '40', color: lightColor, transform: `translateX(${20 * direction}px)` };
             case 'done':
                 return { ...baseStyle, backgroundColor: COLORS.success + '20', borderColor: COLORS.success, color: COLORS.success };
             default:
@@ -244,9 +247,9 @@ export default function CriticalSectionVisual() {
                     marginBottom: '24px',
                     flexWrap: 'wrap',
                 }}>
-                    {/* Thread-1 */}
+                    {/* Thread-1 (왼쪽에서 오른쪽으로 이동) */}
                     <div style={{ textAlign: 'center' }}>
-                        <div style={getThreadStyle(currentStep.thread1, COLORS.thread1, COLORS.thread1Light)}>
+                        <div style={getThreadStyle(currentStep.thread1, COLORS.thread1, COLORS.thread1Light, 'left')}>
                             <span>Thread-1</span>
                             <span style={{ fontSize: '10px', marginTop: '4px' }}>
                                 {currentStep.thread1 === 'blocked' ? '🚫 대기' :
@@ -300,15 +303,15 @@ export default function CriticalSectionVisual() {
                         </div>
                     </div>
 
-                    {/* Thread-2 */}
+                    {/* Thread-2 (오른쪽에서 왼쪽으로 이동) */}
                     <div style={{ textAlign: 'center' }}>
-                        <div style={getThreadStyle(currentStep.thread2, COLORS.thread2, COLORS.thread2Light)}>
+                        <div style={getThreadStyle(currentStep.thread2, COLORS.thread2, COLORS.thread2Light, 'right')}>
                             <span>Thread-2</span>
                             <span style={{ fontSize: '10px', marginTop: '4px' }}>
                                 {currentStep.thread2 === 'blocked' ? '🚫 대기' :
                                  currentStep.thread2 === 'done' ? '✅ 완료' :
                                  currentStep.thread2 === 'inside' ? '⚡ 실행' :
-                                 currentStep.thread2 === 'entering' ? '→ 진입' : '⏳ 대기'}
+                                 currentStep.thread2 === 'entering' ? '← 진입' : '⏳ 대기'}
                             </span>
                         </div>
                     </div>
