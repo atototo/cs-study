@@ -63,7 +63,14 @@ const sidebars = {
         {
           type: 'category',
           label: '2과목: 소프트웨어 개발',
-          items: ['정보처리기사/소프트웨어개발/intro'],
+          link: {
+            type: 'doc',
+            id: '정보처리기사/소프트웨어개발/intro',
+          },
+          items: [
+            '정보처리기사/소프트웨어개발/데이터입출력구현-1',
+            '정보처리기사/소프트웨어개발/데이터입출력구현-2',
+          ],
         },
         {
           type: 'category',
