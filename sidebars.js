@@ -90,6 +90,14 @@ const sidebars = {
         },
       ],
     },
+    {
+      type: 'category',
+      label: '🗣️ 인성면접 준비',
+      items: [
+        'interview-prep/intro',
+        'interview-prep/questions',
+      ],
+    },
   ],
 };
 
