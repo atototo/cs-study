@@ -96,6 +96,7 @@ const sidebars = {
       items: [
         'interview-prep/intro',
         'interview-prep/questions',
+        'interview-prep/career-description',
       ],
     },
   ],
